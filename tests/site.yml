@@ -1,0 +1,35 @@
+---
+- hosts: all
+  sudo: true
+  vars:
+    packages:
+      - "wget"
+      - "tcpdump"
+      - "nc"
+  handlers:
+    - name: Do Something
+      debug: msg="true"
+  tasks:
+    - name: Install our packages
+      yum:
+        name: "{{item}}"
+        state: "present"
+      with_items: packages 
+
+    - group:
+        name: "superusers"
+        state: "present"
+
+    - user:
+        name: "{{item}}"
+        state: "present"
+        groups: "superusers"
+      with_items:
+        - "michaelc"
+        - "michelled"
+        - "obamab"
+        - "barryb"
+        - "user01"
+      notify: "Do Something"
+
+    - command: rpm -qa wget 
