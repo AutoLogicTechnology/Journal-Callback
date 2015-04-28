@@ -11,9 +11,48 @@
 import datetime
 import uuid
 import json
+import base64
 import re 
 import urllib2 as http 
 import sqlite3 as db 
+
+class SQLiteCache(object):
+
+  def __init__(self):
+    self.connection = db.connect('journal_callback.cache')
+    self._build_database()
+
+  def _build_database(self):
+    cache_table = '''
+    CREATE TABLE IF NOT EXISTS callback_cache (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL UNIQUE,
+      date TEXT NOT NULL,
+      journal BLOB NOT NULL
+    );
+    '''
+
+    c = self.connection.cursor()
+    c.execute(cache_table)
+    self.connection.commit()
+    c.close()
+
+  def cache_item(self, journal):
+    insert_cache_item = '''
+    INSERT INTO callback_cache (date, journal) VALUES (?, ?);
+    '''
+
+    now = datetime.datetime.now().strftime('%c')
+    c = self.connection.cursor()
+    c.execute(insert_cache_item, (now, base64.b64encode(json.dumps(journal))))
+    self.connection.commit()
+    c.close()
+
+  def have_cached_items(self):
+    find_cached_items = '''
+    SELECT * FROM callback_cache;
+    '''
+
+    c = self.connection.cursor()
 
 class CallbackModule(object):
   """
@@ -31,10 +70,11 @@ class CallbackModule(object):
       },
     }
 
-    self.installed_reg  = re.compile('[Dependency ]?Installed:\\n[ ]+?(.*)')
-    self.updated_reg    = re.compile('Updated:\\n[ ]+?(.*)')
-    self.replaced_reg   = re.compile('Replaced:\\n[ ]+?(.*)')
-    self.ignored_reg    = re.compile('(.*) providing (.*) is already installed')
+    # This is in place a the Journal API hasn't been started yet
+    # so ALL runs go into a SQLite DB for the time being. That being said,
+    # all runs that failo to talk to the API (for whatever reason) will
+    # be cached in SQLite until the next run.
+    self.cache = SQLiteCache()
 
   def pprintjson(self, data):
     print(json.dumps(data,separators=(',',':'),sort_keys=True,indent=4))
@@ -54,11 +94,19 @@ class CallbackModule(object):
   def success(self, host):
     self.journal['data']['hosts'][host]['success'] += 1
 
+  def failure(self, host):
+    self.journal['data']['hosts'][host]['failed'] += 1
+
   def parse_yum_output(self, host, results):
     """
     Process the horrible Ansible Yum module output and provide a better
     way of indexing and reading it.
     """
+
+    installed_reg  = re.compile('[Dependency ]?Installed:\\n[ ]+?(.*)')
+    updated_reg    = re.compile('Updated:\\n[ ]+?(.*)')
+    replaced_reg   = re.compile('Replaced:\\n[ ]+?(.*)')
+    ignored_reg    = re.compile('(.*) providing (.*) is already installed')
 
     entry = {
       'date': datetime.datetime.now().strftime('%c'),
@@ -72,25 +120,23 @@ class CallbackModule(object):
       }
     }
 
-    self.pprintjson(results)
-
     for result in results['results']:
-      installed = self.installed_reg.search(result)
+      installed = installed_reg.search(result)
       if installed:
         entry['yum']['installed'].append(installed.group(1).strip())
         continue
 
-      updated = self.updated_reg.search(result)
+      updated = updated_reg.search(result)
       if updated:
         entry['yum']['updated'].append(updated.group(1).strip())
         continue
 
-      replaced = self.replaced_reg.search(result)
+      replaced = replaced_reg.search(result)
       if replaced:
         entry['yum']['replaced'].append(replaced.group(1).strip())
         continue
 
-      ignored = self.ignored_reg.search(result)
+      ignored = ignored_reg.search(result)
       if ignored:
         entry['yum']['ignored'].append(ignored.group(1).strip())
         continue
@@ -110,20 +156,19 @@ class CallbackModule(object):
     pass
 
   def runner_on_failed(self, host, res, ignore_errors=False):
-    pass
+    self.new_host(host)
+    self.store_raw_output(host, res)
+    self.failure(host)
 
   def runner_on_ok(self, host, res):
     self.new_host(host)
 
     if res['invocation']['module_name'] == 'setup':
       self.parse_setup_output(host, res)
-      return
-
-    if res['invocation']['module_name'] == 'yum':
+    elif res['invocation']['module_name'] == 'yum':
       self.parse_yum_output(host, res)
-      return
-
-    self.store_raw_output(host, res)
+    else:
+      self.store_raw_output(host, res)
 
   def runner_on_skipped(self, host, item=None):
     pass
@@ -147,7 +192,7 @@ class CallbackModule(object):
     pass 
 
   def playbook_on_notify(self, host, handler):
-    self.pprintjson([host, handler])
+    pass
 
   def playbook_on_no_hosts_matched(self):
     pass
@@ -174,4 +219,4 @@ class CallbackModule(object):
     pass
 
   def playbook_on_stats(self, stats):
-    self.pprintjson(self.journal)
+    self.cache.cache_item(self.journal)
