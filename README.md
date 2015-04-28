@@ -4,7 +4,7 @@ This Ansible [callback plugin](http://docs.ansible.com/developing_plugins.html#c
 
 ## Version
 
-v2.0.0
+v2.0.1
 
 ## Benefits
 
@@ -46,7 +46,7 @@ It's useful for glancing over the cache and seeing if you need to clear it due t
 
 ### JSON Printing
 
-This is somewhat obvious: it prints out the entire cache as a JSON document. You can use this with the [jq]() tool to refine the data coming out, or just review it on the CLI (it's pretty printed for you.)
+This is somewhat obvious: it prints out the entire cache as a JSON document. You can use this with the [jq](https://github.com/stedolan/jq) tool to refine the data coming out, or just review it on the CLI (it's pretty printed for you.)
 
 ###
 
@@ -71,8 +71,7 @@ An example of the output would look like this:
             {
                 "changed":false,
                 "module":"user"
-            },
-            // etc...
+            }
         ],
         "who":{
             "sudo_user":"vagrant",
@@ -86,8 +85,7 @@ An example of the output would look like this:
             {
                 "changed":true,
                 "module":"yum"
-            },
-           // etc...
+            }
         ],
         "who":{
             "sudo_user":"vagrant",
