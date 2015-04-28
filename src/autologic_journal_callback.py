@@ -47,13 +47,6 @@ class SQLiteCache(object):
     self.connection.commit()
     c.close()
 
-  def have_cached_items(self):
-    find_cached_items = '''
-    SELECT * FROM callback_cache;
-    '''
-
-    c = self.connection.cursor()
-
 class CallbackModule(object):
   """
   Log JSON results to the Autologic Journal API.
@@ -70,13 +63,13 @@ class CallbackModule(object):
       },
     }
 
-    # This is in place a the Journal API hasn't been started yet
-    # so ALL runs go into a SQLite DB for the time being. That being said,
-    # all runs that failo to talk to the API (for whatever reason) will
-    # be cached in SQLite until the next run.
     self.cache = SQLiteCache()
 
   def pprintjson(self, data):
+    """
+    Helper function for debugging output from Ansible.
+    """
+
     print(json.dumps(data,separators=(',',':'),sort_keys=True,indent=4))
 
   def new_host(self, host):
