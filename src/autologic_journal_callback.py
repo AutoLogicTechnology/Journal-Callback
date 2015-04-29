@@ -168,53 +168,53 @@ class CallbackModule(object):
     else:
       self.store_raw_output(host, res)
 
-  def runner_on_skipped(self, host, item=None):
-    pass
+  # def runner_on_skipped(self, host, item=None):
+  #   pass
 
-  def runner_on_unreachable(self, host, res):
-    pass
+  # def runner_on_unreachable(self, host, res):
+  #   pass
 
-  def runner_on_no_hosts(self):
-    pass
+  # def runner_on_no_hosts(self):
+  #   pass
 
-  def runner_on_async_poll(self, host, res, jid, clock):
-    pass
+  # def runner_on_async_poll(self, host, res, jid, clock):
+  #   pass
 
-  def runner_on_async_ok(self, host, res, jid):
-    pass
+  # def runner_on_async_ok(self, host, res, jid):
+  #   pass
 
-  def runner_on_async_failed(self, host, res, jid):
-    pass
+  # def runner_on_async_failed(self, host, res, jid):
+  #   pass
 
-  def playbook_on_start(self):
-    pass 
+  # def playbook_on_start(self):
+  #   pass 
 
-  def playbook_on_notify(self, host, handler):
-    pass
+  # def playbook_on_notify(self, host, handler):
+  #   pass
 
-  def playbook_on_no_hosts_matched(self):
-    pass
+  # def playbook_on_no_hosts_matched(self):
+  #   pass
 
-  def playbook_on_no_hosts_remaining(self):
-    pass
+  # def playbook_on_no_hosts_remaining(self):
+  #   pass
 
-  def playbook_on_task_start(self, name, is_conditional):
-    pass
+  # def playbook_on_task_start(self, name, is_conditional):
+  #   pass
 
-  def playbook_on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False, salt_size=None, salt=None, default=None):
-    pass
+  # def playbook_on_vars_prompt(self, varname, private=True, prompt=None, encrypt=None, confirm=False, salt_size=None, salt=None, default=None):
+  #   pass
 
-  def playbook_on_setup(self):
-    pass
+  # def playbook_on_setup(self):
+  #   pass
 
-  def playbook_on_import_for_host(self, host, imported_file):
-    pass
+  # def playbook_on_import_for_host(self, host, imported_file):
+  #   pass
 
-  def playbook_on_not_import_for_host(self, host, missing_file):
-    pass
+  # def playbook_on_not_import_for_host(self, host, missing_file):
+  #   pass
 
-  def playbook_on_play_start(self, name):
-    pass
+  # def playbook_on_play_start(self, name):
+  #   pass
 
   def playbook_on_stats(self, stats):
     self.cache.cache_item(self.journal)
@@ -289,10 +289,12 @@ def find_the_blame(cache, host):
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
+
   parser.add_argument('--pretty-list', help="Pretty print a list all the cached items", required=False, action='store_true')
   parser.add_argument('--list', help="Print a JSON document of all the cached items", required=False, action='store_true')
   parser.add_argument('--blame', help="Find out how the who, what, when, how of a given host", required=False, metavar="host")
   parser.add_argument('--export', help="Export all the data as a JSON list", required=False, action='store_true')
+
   args = parser.parse_args()
 
   db = SQLiteCache()
