@@ -4,7 +4,7 @@ This Ansible [callback plugin](http://docs.ansible.com/developing_plugins.html#c
 
 ## Version
 
-v2.0.2
+v0.3.2
 
 ## Benefits
 

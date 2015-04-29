@@ -9,6 +9,7 @@
 # License: MIT
 
 import os
+import getpass
 import datetime
 import uuid
 import json
@@ -70,11 +71,11 @@ class CallbackModule(object):
       'id': self.entry_id,
       'data': {
         'date': datetime.datetime.now().strftime('%c'),
-        'who': {},
         'hosts': {},
       },
     }
 
+    self.have_playbook = False
     self.cache = SQLiteCache()
 
   def new_host(self, host):
@@ -143,23 +144,35 @@ class CallbackModule(object):
     self.journal['data']['hosts'][host]['tasks'].append(entry)
  
   def parse_setup_output(self, host, res):
-    self.journal['data']['who'] = res['ansible_facts']['ansible_env']
+    self.journal['data']['environment'] = res['ansible_facts']['ansible_env']
+
+  def store_who_data(self):
+    if 'who' not in self.journal['data']:
+      self.journal['data']['who'] = {
+        'local_user': getpass.getuser(),
+      }
 
   def store_raw_output(self, host, res):
     entry = {'date': datetime.datetime.now().strftime('%c'), 'ansible_results': res, 'position': len(self.journal['data']['hosts'][host]['tasks'])+1}
     self.success(host)
     self.journal['data']['hosts'][host]['tasks'].append(entry)
 
+  def store_results(self):
+    self.cache.cache_item(self.journal)
+    prettyprint_json(self.journal)
+
   def on_any(self, *args, **kwargs):
     pass
 
   def runner_on_failed(self, host, res, ignore_errors=False):
     self.new_host(host)
+    self.store_who_data()
     self.store_raw_output(host, res)
     self.failure(host)
 
   def runner_on_ok(self, host, res):
     self.new_host(host)
+    self.store_who_data()
 
     if res['invocation']['module_name'] == 'setup':
       self.parse_setup_output(host, res)
@@ -167,6 +180,9 @@ class CallbackModule(object):
       self.parse_yum_output(host, res)
     else:
       self.store_raw_output(host, res)
+
+    if not self.have_playbook:
+      self.store_results()
 
   # def runner_on_skipped(self, host, item=None):
   #   pass
@@ -186,8 +202,8 @@ class CallbackModule(object):
   # def runner_on_async_failed(self, host, res, jid):
   #   pass
 
-  # def playbook_on_start(self):
-  #   pass 
+  def playbook_on_start(self):
+    self.have_playbook = True
 
   # def playbook_on_notify(self, host, handler):
   #   pass
@@ -217,7 +233,7 @@ class CallbackModule(object):
   #   pass
 
   def playbook_on_stats(self, stats):
-    self.cache.cache_item(self.journal)
+    self.store_results()
 
 #
 # Beginning of the CLI. Anything Ansible related stop here.
