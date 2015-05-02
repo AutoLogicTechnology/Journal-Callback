@@ -11,7 +11,6 @@
 import os
 import getpass
 import datetime
-import uuid
 import json
 import base64
 import re 
@@ -19,7 +18,13 @@ import argparse
 import urllib2 as http 
 import sqlite3 as db 
 
-JOURNAL_CALLBACK_DATABASE="%s/%s" % (os.environ['HOME'], '.journal_callback.cache')
+# General configuration. Change this and then
+# commit this plugin to your Ansible Playbook
+# Git repository.
+JOURNAL_API_URL = 'http://localhost:5000'
+
+JOURNAL_CALLBACK_DATABASE = "%s/%s" % (os.environ['HOME'], '.journal_callback.cache')
+GLOBAL_DATE_FORMAT = '%Y-%m-%dT%H:%M:%S'
 
 class SQLiteCache(object):
 
@@ -46,7 +51,7 @@ class SQLiteCache(object):
     INSERT INTO callback_cache (date, journal) VALUES (?, ?);
     '''
 
-    now = datetime.datetime.now().strftime('%c')
+    now = datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT)
     c = self.connection.cursor()
     c.execute(insert_cache_item, (now, base64.b64encode(json.dumps(journal))))
     self.connection.commit()
@@ -66,13 +71,9 @@ class CallbackModule(object):
   """
 
   def __init__(self):
-    self.entry_id = uuid.uuid4().hex 
     self.journal = {
-      'id': self.entry_id,
-      'data': {
-        'date': datetime.datetime.now().strftime('%c'),
+        'date': datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT),
         'hosts': {},
-      },
     }
 
     self.have_playbook = False
@@ -83,18 +84,18 @@ class CallbackModule(object):
     If a host doesn't exist within the journal, create a new entry for it.
     """
 
-    if not host in self.journal['data']['hosts']:
-      self.journal['data']['hosts'][host] = {
+    if not host in self.journal['hosts']:
+      self.journal['hosts'][host] = {
         'success': 0,
         'failed': 0,
         'tasks': [],
       }
 
   def success(self, host):
-    self.journal['data']['hosts'][host]['success'] += 1
+    self.journal['hosts'][host]['success'] += 1
 
   def failure(self, host):
-    self.journal['data']['hosts'][host]['failed'] += 1
+    self.journal['hosts'][host]['failed'] += 1
 
   def parse_yum_output(self, host, results):
     """
@@ -108,9 +109,9 @@ class CallbackModule(object):
     ignored_reg    = re.compile('(.*) providing (.*) is already installed')
 
     entry = {
-      'date': datetime.datetime.now().strftime('%c'),
+      'date': datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT),
       'ansible_results': results,
-      'position': len(self.journal['data']['hosts'][host]['tasks'])+1,
+      'position': len(self.journal['hosts'][host]['tasks'])+1,
       'yum': {
         'installed': [],
         'replaced': [],
@@ -141,28 +142,43 @@ class CallbackModule(object):
         continue
 
     self.success(host)
-    self.journal['data']['hosts'][host]['tasks'].append(entry)
+    self.journal['hosts'][host]['tasks'].append(entry)
  
   def parse_setup_output(self, host, res):
-    self.journal['data']['environment'] = res['ansible_facts']['ansible_env']
+    self.journal['environment'] = res['ansible_facts']['ansible_env']
 
   def store_who_data(self):
-    if 'who' not in self.journal['data']:
-      self.journal['data']['who'] = {
+    if 'who' not in self.journal:
+      self.journal['who'] = {
         'local_user': getpass.getuser(),
       }
 
   def store_raw_output(self, host, res):
-    entry = {'date': datetime.datetime.now().strftime('%c'), 'ansible_results': res, 'position': len(self.journal['data']['hosts'][host]['tasks'])+1}
+    entry = {
+      'date': datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT),
+      'ansible_results': res,
+      'position': len(self.journal['hosts'][host]['tasks'])+1
+    }
+
     self.success(host)
-    self.journal['data']['hosts'][host]['tasks'].append(entry)
+    self.journal['hosts'][host]['tasks'].append(entry)
 
   def store_results(self):
     self.cache.cache_item(self.journal)
-    prettyprint_json(self.journal)
+    self.send_results()
 
-  def on_any(self, *args, **kwargs):
-    pass
+  def send_results(self):
+    post_data = json.dumps(self.journal)
+    post_reqs = http.Request("%s/journals" % JOURNAL_API_URL, post_data, {'Content-Type': 'application/json'})
+    post_open = http.urlopen(post_reqs)
+
+    if post_open.getcode() != 201:
+      print("### ERROR: Unable to post to Journal API. ###")
+
+    post_open.close()
+
+  # def on_any(self, *args, **kwargs):
+  #   pass
 
   def runner_on_failed(self, host, res, ignore_errors=False):
     self.new_host(host)

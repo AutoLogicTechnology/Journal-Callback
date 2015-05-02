@@ -4,7 +4,7 @@ This Ansible [callback plugin](http://docs.ansible.com/developing_plugins.html#c
 
 ## Version
 
-v0.3.2
+v1.3.3
 
 ## Benefits
 
@@ -48,7 +48,7 @@ It's useful for glancing over the cache and seeing if you need to clear it due t
 
 This is somewhat obvious: it prints out the entire cache as a JSON document. You can use this with the [jq](https://github.com/stedolan/jq) tool to refine the data coming out, or just review it on the CLI (it's pretty printed for you.)
 
-###
+### Blame
 
 The blame feature is basic as it stands now, but it's one of the core features and as such it'll get more attention going forward. This feature was inspired by the ```git blame``` command.
 
