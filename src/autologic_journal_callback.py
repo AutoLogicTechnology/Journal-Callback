@@ -169,7 +169,7 @@ class CallbackModule(object):
 
   def send_results(self):
     post_data = json.dumps(self.journal)
-    post_reqs = http.Request("%s/journals" % JOURNAL_API_URL, post_data, {'Content-Type': 'application/json'})
+    post_reqs = http.Request("%s/journal" % JOURNAL_API_URL, post_data, {'Content-Type': 'application/json'})
     post_open = http.urlopen(post_reqs)
 
     if post_open.getcode() != 201:
