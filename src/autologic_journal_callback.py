@@ -86,6 +86,7 @@ class CallbackModule(object):
 
     if not host in self.journal['hosts']:
       self.journal['hosts'][host] = {
+        'name': host,
         'success': 0,
         'failed': 0,
         'tasks': [],
@@ -96,67 +97,18 @@ class CallbackModule(object):
 
   def failure(self, host):
     self.journal['hosts'][host]['failed'] += 1
-
-  def parse_yum_output(self, host, results):
-    """
-    Process the horrible Ansible Yum module output and provide a better
-    way of indexing and reading it.
-    """
-
-    installed_reg  = re.compile('[Dependency ]?Installed:\\n[ ]+?(.*)')
-    updated_reg    = re.compile('Updated:\\n[ ]+?(.*)')
-    replaced_reg   = re.compile('Replaced:\\n[ ]+?(.*)')
-    ignored_reg    = re.compile('(.*) providing (.*) is already installed')
-
-    entry = {
-      'date': datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT),
-      'ansible_results': results,
-      'position': len(self.journal['hosts'][host]['tasks'])+1,
-      'yum': {
-        'installed': [],
-        'replaced': [],
-        'updated': [],
-        'ignored': [],
-      }
-    }
-
-    for result in results['results']:
-      installed = installed_reg.search(result)
-      if installed:
-        entry['yum']['installed'].append(installed.group(1).strip())
-        continue
-
-      updated = updated_reg.search(result)
-      if updated:
-        entry['yum']['updated'].append(updated.group(1).strip())
-        continue
-
-      replaced = replaced_reg.search(result)
-      if replaced:
-        entry['yum']['replaced'].append(replaced.group(1).strip())
-        continue
-
-      ignored = ignored_reg.search(result)
-      if ignored:
-        entry['yum']['ignored'].append(ignored.group(1).strip())
-        continue
-
-    self.success(host)
-    self.journal['hosts'][host]['tasks'].append(entry)
  
   def parse_setup_output(self, host, res):
     self.journal['environment'] = res['ansible_facts']['ansible_env']
 
   def store_who_data(self):
     if 'who' not in self.journal:
-      self.journal['who'] = {
-        'local_user': getpass.getuser(),
-      }
+      self.journal['user'] = getpass.getuser()
 
   def store_raw_output(self, host, res):
     entry = {
       'date': datetime.datetime.now().strftime(GLOBAL_DATE_FORMAT),
-      'ansible_results': res,
+      'ansible_raw_results': res,
       'position': len(self.journal['hosts'][host]['tasks'])+1
     }
 
@@ -192,8 +144,6 @@ class CallbackModule(object):
 
     if res['invocation']['module_name'] == 'setup':
       self.parse_setup_output(host, res)
-    elif res['invocation']['module_name'] == 'yum':
-      self.parse_yum_output(host, res)
     else:
       self.store_raw_output(host, res)
 
