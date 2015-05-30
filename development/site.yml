@@ -16,6 +16,11 @@
         state: "present"
       with_items: packages 
 
+    - name: Remove nc
+      yum:
+        name: "nc"
+        state: "absent"
+
     - group:
         name: "superusers"
         state: "present"
@@ -33,3 +38,17 @@
       notify: "Do Something"
 
     - command: rpm -qa wget 
+
+- hosts: all
+  sudo: true
+  tasks:
+    - name: Install our packages
+      service:
+        name: "postfix"
+        state: "stopped"
+        enabled: false
+
+    - name: Remove user 
+      user:
+        name: "michaelc"
+        state: "absent"

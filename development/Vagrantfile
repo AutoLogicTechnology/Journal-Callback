@@ -4,6 +4,12 @@ VAGRANTFILE_API_VERSION = "2"
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = "movedx/centos-6.6"
 
+  if defined? VagrantPlugins::Cachier
+    config.cache.auto_detect = true
+  end
+  
+  config.ssh.insert_key = false
+
   config.vm.provision :ansible do |ansible|
     ansible.playbook = "site.yml"
   end
